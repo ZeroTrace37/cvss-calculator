@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZeroTrace37 — CVSS 3.1 Calculator</title>
+<meta name="description" content="Free offline CVSS 3.1 base score calculator for pentesters & bug bounty hunters. Pick the metrics, get the score, severity and vector string. Nothing leaves your browser.">
+<style>
+  :root{
+    --bg:#0a0c10; --panel:#11141b; --panel-2:#161a23; --line:#232a37;
+    --txt:#c9d4e5; --muted:#6b7789; --accent:#39ff88; --accent-dim:#1f9c56;
+    --warn:#ff5b5b; --amber:#ffb347; --blue:#5cc8ff;
+    --mono:"SFMono-Regular",ui-monospace,"JetBrains Mono","Fira Code",Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:var(--mono);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 16px}
+
+  header{border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0d1017,#0a0c10);
+    position:sticky;top:0;z-index:20}
+  .bar{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;
+    max-width:1100px;margin:0 auto;gap:12px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.5px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);
+    box-shadow:0 0 10px var(--accent);animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .brand small{color:var(--muted);font-weight:400;letter-spacing:0}
+  .hright{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .langtog{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .lt{padding:6px 10px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none}
+  .lt+.lt{border-left:1px solid var(--line)}
+  .lt.on{color:var(--accent);background:rgba(57,255,136,.10)}
+  .cta{font-size:12.5px;padding:7px 12px;border:1px solid var(--accent-dim);border-radius:6px;
+    color:var(--accent);background:rgba(57,255,136,.06)}
+  .cta:hover{background:rgba(57,255,136,.14);text-decoration:none}
+
+  .strip{font-size:12px;color:var(--amber);background:rgba(255,179,71,.07);
+    border-bottom:1px solid var(--line);text-align:center;padding:6px 16px}
+
+  .lead{padding:18px 0 4px;color:var(--muted);font-size:13px}
+
+  .layout{display:grid;gap:16px;margin-top:8px}
+  @media(min-width:900px){.layout{grid-template-columns:1fr 320px;align-items:start}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px}
+
+  .metric{margin-bottom:16px}
+  .metric:last-child{margin-bottom:0}
+  .metric .mlabel{font-size:12px;color:var(--txt);margin-bottom:7px;display:flex;justify-content:space-between;gap:8px}
+  .metric .mlabel .hint{color:var(--muted);font-size:11px;font-weight:400}
+  .opts{display:flex;gap:6px;flex-wrap:wrap}
+  .opt{font-size:12px;padding:7px 11px;border:1px solid var(--line);border-radius:6px;
+    color:var(--muted);cursor:pointer;user-select:none;background:var(--panel-2)}
+  .opt.on{color:var(--accent);border-color:var(--accent-dim);background:rgba(57,255,136,.10)}
+  .group-title{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);
+    margin:4px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+
+  .result{position:sticky;top:78px}
+  .score-box{text-align:center;padding:8px 0 14px}
+  .score-num{font-size:54px;font-weight:700;line-height:1}
+  .sev{display:inline-block;margin-top:10px;font-size:13px;padding:4px 14px;border-radius:6px;border:1px solid;letter-spacing:1px}
+  .s-none{color:var(--muted);border-color:var(--line)}
+  .s-low{color:#8fe388;border-color:#4f9c4a;background:rgba(120,220,120,.07)}
+  .s-med{color:var(--amber);border-color:var(--amber);background:rgba(255,179,71,.08)}
+  .s-high{color:#ff9a5b;border-color:#c76a2e;background:rgba(255,140,71,.08)}
+  .s-crit{color:var(--warn);border-color:var(--warn);background:rgba(255,91,91,.08)}
+  .vector{margin-top:14px}
+  .vector .vlabel{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px}
+  .vector .vstr{background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:10px;
+    font-size:12.5px;color:var(--blue);word-break:break-all}
+  .btn{font-family:var(--mono);font-size:12px;padding:8px 12px;border:1px solid var(--line);
+    background:var(--panel-2);color:var(--txt);border-radius:6px;cursor:pointer;margin-top:10px;width:100%}
+  .btn:hover{border-color:var(--accent-dim);color:var(--accent)}
+  .sub{margin-top:14px;font-size:12px;color:var(--muted);display:flex;justify-content:space-between}
+  .sub b{color:var(--txt)}
+
+  .optin{margin:26px 0;background:linear-gradient(135deg,#0e1620,#11141b);
+    border:1px solid var(--accent-dim);border-radius:10px;padding:20px}
+  .optin h3{margin:0 0 6px;color:var(--accent);font-size:16px}
+  .optin p{margin:0 0 12px;color:var(--muted);font-size:13px}
+  .optin form{display:flex;gap:10px;flex-wrap:wrap}
+  .optin input{flex:1;min-width:220px;background:var(--panel-2);border:1px solid var(--line);
+    color:var(--txt);font-family:var(--mono);font-size:13.5px;border-radius:6px;padding:10px}
+  .optin input:focus{outline:none;border-color:var(--accent-dim)}
+  .optin .btn{background:var(--accent);color:#062412;border-color:var(--accent);font-weight:700;width:auto;margin-top:0}
+  .optin .btn:hover{background:#5affa0;color:#062412}
+  .optin .msg{margin-top:10px;font-size:12.5px}
+
+  footer{border-top:1px solid var(--line);margin-top:30px;padding:22px 0;color:var(--muted);font-size:12px}
+  footer .wrap{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    background:var(--accent);color:#062412;font-weight:700;padding:9px 16px;border-radius:6px;
+    font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="brand"><span class="dot"></span>ZeroTrace37 <small>// CVSS 3.1 Calculator</small></div>
+    <div class="hright">
+      <div class="langtog" id="langtog">
+        <span class="lt" data-lang="de">DE</span>
+        <span class="lt" data-lang="en">EN</span>
+      </div>
+      <a class="cta" href="https://tracekeeper.gumroad.com" target="_blank" rel="noopener" data-i18n="cta">Alle Tools →</a>
+    </div>
+  </div>
+</header>
+<div class="strip" data-i18n="warn">Läuft 100% im Browser. Base-Score nach offizieller CVSS-v3.1-Spezifikation.</div>
+
+<div class="wrap">
+  <p class="lead" data-i18n="lead">Metriken wählen — Score, Schweregrad und Vektor-String werden live berechnet. Für Schwachstellen-Reports &amp; Bug-Bounty-Einreichungen.</p>
+
+  <div class="layout">
+    <div class="panel" id="metrics"></div>
+
+    <div class="panel result">
+      <div class="score-box">
+        <div class="score-num" id="scoreNum">0.0</div>
+        <div class="sev s-none" id="sev">—</div>
+      </div>
+      <div class="vector">
+        <div class="vlabel" data-i18n="v_label">Vektor-String</div>
+        <div class="vstr" id="vstr"></div>
+        <button class="btn" id="copyVec" data-i18n="v_copy">Vektor kopieren</button>
+      </div>
+      <div class="sub"><span data-i18n="r_impact">Impact</span><b id="impactVal">0.0</b></div>
+      <div class="sub"><span data-i18n="r_expl">Exploitability</span><b id="explVal">0.0</b></div>
+    </div>
+  </div>
+
+  <div class="optin">
+    <h3 data-i18n="o_h3">Neue Tools zuerst bekommen</h3>
+    <p data-i18n="o_p">Ein bis zwei Mails im Monat: neue kostenlose Tools, Recon-Tricks und Updates aus der ZeroTrace37-Werkbank. Kein Spam, jederzeit abbestellbar.</p>
+    <form id="optform" action="https://formspree.io/f/xqpabzyl" method="POST">
+      <input type="email" name="email" data-i18n-ph="ph_email" placeholder="deine@mail.tld" required>
+      <button class="btn" type="submit" data-i18n="o_btn">Eintragen</button>
+    </form>
+    <div class="msg" id="optmsg"></div>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>ZeroTrace37 &middot; Security Tooling &middot; <a href="https://zerotrace37.com" target="_blank" rel="noopener">zerotrace37.com</a> &middot; <a href="https://tracekeeper.gumroad.com" target="_blank" rel="noopener">Shop</a></div>
+    <div data-i18n="f_browser">Läuft 100% im Browser. Keine Daten verlassen dein Gerät.</div>
+  </div>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var $=function(s,r){return (r||document).querySelector(s)};
+  var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+
+  var METRICS=[
+    {id:"AV", name:{de:"Angriffsvektor (AV)",en:"Attack Vector (AV)"},
+      opts:[["N",{de:"Netzwerk",en:"Network"}],["A",{de:"Angrenzend",en:"Adjacent"}],["L",{de:"Lokal",en:"Local"}],["P",{de:"Physisch",en:"Physical"}]], def:"N"},
+    {id:"AC", name:{de:"Angriffskomplexität (AC)",en:"Attack Complexity (AC)"},
+      opts:[["L",{de:"Niedrig",en:"Low"}],["H",{de:"Hoch",en:"High"}]], def:"L"},
+    {id:"PR", name:{de:"Benötigte Rechte (PR)",en:"Privileges Required (PR)"},
+      opts:[["N",{de:"Keine",en:"None"}],["L",{de:"Niedrig",en:"Low"}],["H",{de:"Hoch",en:"High"}]], def:"N"},
+    {id:"UI", name:{de:"Nutzerinteraktion (UI)",en:"User Interaction (UI)"},
+      opts:[["N",{de:"Keine",en:"None"}],["R",{de:"Erforderlich",en:"Required"}]], def:"N"},
+    {id:"S", name:{de:"Scope (S)",en:"Scope (S)"},
+      opts:[["U",{de:"Unverändert",en:"Unchanged"}],["C",{de:"Verändert",en:"Changed"}]], def:"U"},
+    {id:"C", name:{de:"Vertraulichkeit (C)",en:"Confidentiality (C)"},
+      opts:[["H",{de:"Hoch",en:"High"}],["L",{de:"Niedrig",en:"Low"}],["N",{de:"Keine",en:"None"}]], def:"N"},
+    {id:"I", name:{de:"Integrität (I)",en:"Integrity (I)"},
+      opts:[["H",{de:"Hoch",en:"High"}],["L",{de:"Niedrig",en:"Low"}],["N",{de:"Keine",en:"None"}]], def:"N"},
+    {id:"A", name:{de:"Verfügbarkeit (A)",en:"Availability (A)"},
+      opts:[["H",{de:"Hoch",en:"High"}],["L",{de:"Niedrig",en:"Low"}],["N",{de:"Keine",en:"None"}]], def:"N"}
+  ];
+  var state={AV:"N",AC:"L",PR:"N",UI:"N",S:"U",C:"N",I:"N",A:"N"};
+
+  var W={
+    AV:{N:0.85,A:0.62,L:0.55,P:0.2},
+    AC:{L:0.77,H:0.44},
+    UI:{N:0.85,R:0.62},
+    C:{H:0.56,L:0.22,N:0},
+    I:{H:0.56,L:0.22,N:0},
+    A:{H:0.56,L:0.22,N:0},
+    PR_U:{N:0.85,L:0.62,H:0.27},
+    PR_C:{N:0.85,L:0.68,H:0.5}
+  };
+
+  function roundup(x){
+    var i=Math.round(x*100000);
+    if(i%10000===0) return i/100000;
+    return (Math.floor(i/10000)+1)/10;
+  }
+
+  function calc(){
+    var scopeChanged = state.S==="C";
+    var iss = 1 - ((1-W.C[state.C])*(1-W.I[state.I])*(1-W.A[state.A]));
+    var impact = scopeChanged
+      ? 7.52*(iss-0.029) - 3.25*Math.pow(iss-0.02,15)
+      : 6.42*iss;
+    var pr = scopeChanged ? W.PR_C[state.PR] : W.PR_U[state.PR];
+    var expl = 8.22 * W.AV[state.AV] * W.AC[state.AC] * pr * W.UI[state.UI];
+    var base;
+    if(impact<=0) base=0;
+    else if(scopeChanged) base=roundup(Math.min(1.08*(impact+expl),10));
+    else base=roundup(Math.min(impact+expl,10));
+    return {base:base, impact:Math.max(0,impact), expl:expl};
+  }
+
+  function severity(s){
+    if(s===0) return {key:"none",cls:"s-none"};
+    if(s<4) return {key:"low",cls:"s-low"};
+    if(s<7) return {key:"med",cls:"s-med"};
+    if(s<9) return {key:"high",cls:"s-high"};
+    return {key:"crit",cls:"s-crit"};
+  }
+
+  function vectorString(){
+    return "CVSS:3.1/AV:"+state.AV+"/AC:"+state.AC+"/PR:"+state.PR+"/UI:"+state.UI+
+           "/S:"+state.S+"/C:"+state.C+"/I:"+state.I+"/A:"+state.A;
+  }
+
+  function scoreColor(sevKey){
+    return {none:"var(--muted)",low:"#8fe388",med:"var(--amber)",high:"#ff9a5b",crit:"var(--warn)"}[sevKey];
+  }
+
+  var T={
+    de:{
+      cta:"Alle Tools →",
+      warn:"Läuft 100% im Browser. Base-Score nach offizieller CVSS-v3.1-Spezifikation.",
+      lead:"Metriken wählen — Score, Schweregrad und Vektor-String werden live berechnet. Für Schwachstellen-Reports & Bug-Bounty-Einreichungen.",
+      group:"Base Metrics",
+      v_label:"Vektor-String", v_copy:"Vektor kopieren",
+      r_impact:"Impact", r_expl:"Exploitability",
+      sev_none:"KEINE", sev_low:"NIEDRIG", sev_med:"MITTEL", sev_high:"HOCH", sev_crit:"KRITISCH",
+      o_h3:"Neue Tools zuerst bekommen",
+      o_p:"Ein bis zwei Mails im Monat: neue kostenlose Tools, Recon-Tricks und Updates aus der ZeroTrace37-Werkbank. Kein Spam, jederzeit abbestellbar.",
+      ph_email:"deine@mail.tld", o_btn:"Eintragen",
+      f_browser:"Läuft 100% im Browser. Keine Daten verlassen dein Gerät.",
+      copied:"kopiert",
+      m_invalid:"Bitte gültige E-Mail eingeben.", m_sending:"Sende ...",
+      m_ok:"Eingetragen. Willkommen an Bord — neue Tools landen bald in deinem Postfach.",
+      m_send_err:"Fehler beim Senden. Bitte später erneut versuchen.",
+      m_net_err:"Netzwerkfehler. Bitte später erneut versuchen."
+    },
+    en:{
+      cta:"All Tools →",
+      warn:"Runs 100% in your browser. Base score per the official CVSS v3.1 specification.",
+      lead:"Pick the metrics — score, severity and vector string update live. For vulnerability reports & bug-bounty submissions.",
+      group:"Base Metrics",
+      v_label:"Vector string", v_copy:"Copy vector",
+      r_impact:"Impact", r_expl:"Exploitability",
+      sev_none:"NONE", sev_low:"LOW", sev_med:"MEDIUM", sev_high:"HIGH", sev_crit:"CRITICAL",
+      o_h3:"Get new tools first",
+      o_p:"One or two emails a month: new free tools, recon tricks and updates from the ZeroTrace37 workbench. No spam, unsubscribe anytime.",
+      ph_email:"you@mail.tld", o_btn:"Subscribe",
+      f_browser:"Runs 100% in your browser. No data leaves your device.",
+      copied:"copied",
+      m_invalid:"Please enter a valid email.", m_sending:"Sending ...",
+      m_ok:"Subscribed. Welcome aboard — new tools will hit your inbox soon.",
+      m_send_err:"Send failed. Please try again later.",
+      m_net_err:"Network error. Please try again later."
+    }
+  };
+  var saved=null; try{saved=localStorage.getItem("zt_lang")}catch(e){}
+  var LANG=(saved==="de"||saved==="en")?saved:((navigator.language||"en").toLowerCase().indexOf("de")===0?"de":"en");
+  function t(k){return (T[LANG]&&T[LANG][k]!=null)?T[LANG][k]:((T.en&&T.en[k]!=null)?T.en[k]:k)}
+  function esc(s){return String(s).replace(/[&<>]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c]})}
+
+  function renderMetrics(){
+    var box=$("#metrics"); box.innerHTML='<div class="group-title">'+t("group")+'</div>';
+    METRICS.forEach(function(m){
+      var wrap=document.createElement("div"); wrap.className="metric";
+      var lbl=document.createElement("div"); lbl.className="mlabel";
+      lbl.innerHTML='<span>'+esc(m.name[LANG]||m.name.en)+'</span>';
+      wrap.appendChild(lbl);
+      var opts=document.createElement("div"); opts.className="opts";
+      m.opts.forEach(function(o){
+        var key=o[0], label=o[1][LANG]||o[1].en;
+        var b=document.createElement("span");
+        b.className="opt"+(state[m.id]===key?" on":"");
+        b.textContent=label+" ("+key+")";
+        b.addEventListener("click",function(){ state[m.id]=key; renderMetrics(); update(); });
+        opts.appendChild(b);
+      });
+      wrap.appendChild(opts);
+      box.appendChild(wrap);
+    });
+  }
+
+  function update(){
+    var r=calc(), sev=severity(r.base);
+    var num=$("#scoreNum");
+    num.textContent=r.base.toFixed(1);
+    num.style.color=scoreColor(sev.key);
+    var sevEl=$("#sev");
+    sevEl.className="sev "+sev.cls;
+    sevEl.textContent=t("sev_"+sev.key);
+    $("#vstr").textContent=vectorString();
+    $("#impactVal").textContent=r.impact.toFixed(1);
+    $("#explVal").textContent=r.expl.toFixed(1);
+  }
+
+  function applyI18n(){
+    document.documentElement.lang=LANG;
+    $$("[data-i18n]").forEach(function(el){var k=el.getAttribute("data-i18n");if(T[LANG][k]!=null)el.textContent=T[LANG][k]});
+    $$("[data-i18n-ph]").forEach(function(el){var k=el.getAttribute("data-i18n-ph");if(T[LANG][k]!=null)el.setAttribute("placeholder",T[LANG][k])});
+    $$("#langtog .lt").forEach(function(b){b.classList.toggle("on",b.dataset.lang===LANG)});
+    renderMetrics(); update();
+  }
+  $$("#langtog .lt").forEach(function(b){b.addEventListener("click",function(){
+    LANG=b.dataset.lang;try{localStorage.setItem("zt_lang",LANG)}catch(e){}applyI18n()})});
+
+  var toast=$("#toast"),tt;
+  function ping(msg){toast.textContent=msg||t("copied");toast.classList.add("show");
+    clearTimeout(tt);tt=setTimeout(function(){toast.classList.remove("show")},1100)}
+  function copy(text){
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(function(){ping()})}
+    else{var ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);
+      ta.select();try{document.execCommand("copy")}catch(e){}document.body.removeChild(ta);ping()}
+  }
+  $("#copyVec").addEventListener("click",function(){copy(vectorString())});
+
+  var optform=$("#optform"),optmsg=$("#optmsg");
+  optform.addEventListener("submit",function(e){
+    e.preventDefault();
+    var input=optform.querySelector("input"),val=input.value.trim();
+    if(!val||val.indexOf("@")<1){optmsg.style.color="var(--warn)";optmsg.textContent=t("m_invalid");return;}
+    var btn=optform.querySelector("button");btn.disabled=true;
+    optmsg.style.color="var(--muted)";optmsg.textContent=t("m_sending");
+    fetch(optform.getAttribute("action"),{method:"POST",body:new FormData(optform),headers:{"Accept":"application/json"}})
+    .then(function(r){btn.disabled=false;
+      if(r.ok){optmsg.style.color="var(--accent)";optmsg.textContent=t("m_ok");optform.reset();}
+      else{r.json().then(function(d){optmsg.style.color="var(--warn)";
+        optmsg.textContent=(d&&d.errors&&d.errors[0]&&d.errors[0].message)||t("m_send_err")})
+        .catch(function(){optmsg.style.color="var(--warn)";optmsg.textContent=t("m_send_err")})}
+    }).catch(function(){btn.disabled=false;optmsg.style.color="var(--warn)";optmsg.textContent=t("m_net_err")});
+  });
+
+  applyI18n();
+})();
+</script>
+</body>
+</html>
