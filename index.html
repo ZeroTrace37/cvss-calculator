@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ZeroTrace37 — CVSS 3.1 Calculator</title>
-<meta name="description" content="Free offline CVSS 3.1 base score calculator for pentesters & bug bounty hunters. Pick the metrics, get the score, severity and vector string. Nothing leaves your browser.">
+<meta name="description" content="Free offline CVSS 3.1 calculator for pentesters & bug bounty hunters: base + temporal score, severity scale, vector parsing, metric explanations and a copy-ready report block. Nothing leaves your browser.">
 <style>
   :root{
     --bg:#0a0c10; --panel:#11141b; --panel-2:#161a23; --line:#232a37;
     --txt:#c9d4e5; --muted:#6b7789; --accent:#39ff88; --accent-dim:#1f9c56;
-    --warn:#ff5b5b; --amber:#ffb347; --blue:#5cc8ff;
+    --warn:#ff5b5b; --amber:#ffb347; --blue:#5cc8ff; --orange:#ff9a5b;
     --mono:"SFMono-Regular",ui-monospace,"JetBrains Mono","Fira Code",Consolas,monospace;
   }
   *{box-sizing:border-box}
@@ -42,38 +42,60 @@
 
   .lead{padding:18px 0 4px;color:var(--muted);font-size:13px}
 
-  .layout{display:grid;gap:16px;margin-top:8px}
-  @media(min-width:900px){.layout{grid-template-columns:1fr 320px;align-items:start}}
+  .vecin{display:flex;gap:8px;margin:12px 0 4px;flex-wrap:wrap}
+  .vecin input{flex:1;min-width:220px;background:var(--panel-2);border:1px solid var(--line);
+    color:var(--blue);font-family:var(--mono);font-size:12.5px;border-radius:6px;padding:10px}
+  .vecin input:focus{outline:none;border-color:var(--accent-dim)}
+  .vecin .btn{white-space:nowrap}
+
+  .layout{display:grid;gap:16px;margin-top:12px}
+  @media(min-width:920px){.layout{grid-template-columns:1fr 340px;align-items:start}}
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px}
 
-  .metric{margin-bottom:16px}
+  .metric{margin-bottom:15px}
   .metric:last-child{margin-bottom:0}
-  .metric .mlabel{font-size:12px;color:var(--txt);margin-bottom:7px;display:flex;justify-content:space-between;gap:8px}
-  .metric .mlabel .hint{color:var(--muted);font-size:11px;font-weight:400}
+  .metric .mlabel{font-size:12px;color:var(--txt);margin-bottom:7px}
   .opts{display:flex;gap:6px;flex-wrap:wrap}
   .opt{font-size:12px;padding:7px 11px;border:1px solid var(--line);border-radius:6px;
-    color:var(--muted);cursor:pointer;user-select:none;background:var(--panel-2)}
+    color:var(--muted);cursor:pointer;user-select:none;background:var(--panel-2);position:relative}
   .opt.on{color:var(--accent);border-color:var(--accent-dim);background:rgba(57,255,136,.10)}
+  .opt .exp{display:block;font-size:10.5px;color:var(--muted);margin-top:2px;max-width:150px}
+  .opt.on .exp{color:#9fc9b0}
   .group-title{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);
-    margin:4px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+    margin:2px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line);
+    display:flex;justify-content:space-between;align-items:center}
+  .group-title .opt-note{font-weight:400;letter-spacing:0;text-transform:none;font-size:11px}
+  .panel + .panel{margin-top:16px}
 
   .result{position:sticky;top:78px}
-  .score-box{text-align:center;padding:8px 0 14px}
-  .score-num{font-size:54px;font-weight:700;line-height:1}
-  .sev{display:inline-block;margin-top:10px;font-size:13px;padding:4px 14px;border-radius:6px;border:1px solid;letter-spacing:1px}
+  .scores{display:flex;gap:10px;margin-bottom:12px}
+  .sbox{flex:1;text-align:center;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:12px 6px}
+  .sbox .k{font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
+  .sbox .n{font-size:34px;font-weight:700;line-height:1.1;margin-top:4px}
+  .sev{display:block;margin-top:8px;font-size:11px;padding:3px 0;border-radius:5px;border:1px solid;letter-spacing:1px}
   .s-none{color:var(--muted);border-color:var(--line)}
   .s-low{color:#8fe388;border-color:#4f9c4a;background:rgba(120,220,120,.07)}
   .s-med{color:var(--amber);border-color:var(--amber);background:rgba(255,179,71,.08)}
-  .s-high{color:#ff9a5b;border-color:#c76a2e;background:rgba(255,140,71,.08)}
+  .s-high{color:var(--orange);border-color:#c76a2e;background:rgba(255,140,71,.08)}
   .s-crit{color:var(--warn);border-color:var(--warn);background:rgba(255,91,91,.08)}
-  .vector{margin-top:14px}
-  .vector .vlabel{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px}
-  .vector .vstr{background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:10px;
-    font-size:12.5px;color:var(--blue);word-break:break-all}
-  .btn{font-family:var(--mono);font-size:12px;padding:8px 12px;border:1px solid var(--line);
-    background:var(--panel-2);color:var(--txt);border-radius:6px;cursor:pointer;margin-top:10px;width:100%}
+
+  .scale{margin:6px 0 14px}
+  .scale .track{height:8px;border-radius:5px;position:relative;
+    background:linear-gradient(90deg,#4f9c4a 0%,#4f9c4a 39%,var(--amber) 40%,var(--amber) 69%,var(--orange) 70%,var(--orange) 89%,var(--warn) 90%,var(--warn) 100%)}
+  .scale .marker{position:absolute;top:-4px;width:3px;height:16px;background:#fff;border-radius:2px;
+    box-shadow:0 0 6px rgba(255,255,255,.6);transition:left .15s}
+  .scale .ticks{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:5px}
+
+  .vlabel{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:12px 0 6px}
+  .vstr{background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:10px;
+    font-size:12px;color:var(--blue);word-break:break-all}
+  .btnrow{display:flex;gap:8px;margin-top:10px}
+  .btn{font-family:var(--mono);font-size:12px;padding:9px 12px;border:1px solid var(--line);
+    background:var(--panel-2);color:var(--txt);border-radius:6px;cursor:pointer;flex:1}
   .btn:hover{border-color:var(--accent-dim);color:var(--accent)}
-  .sub{margin-top:14px;font-size:12px;color:var(--muted);display:flex;justify-content:space-between}
+  .btn.primary{background:var(--accent);color:#062412;border-color:var(--accent);font-weight:700}
+  .btn.primary:hover{background:#5affa0;color:#062412}
+  .sub{margin-top:12px;font-size:12px;color:var(--muted);display:flex;justify-content:space-between}
   .sub b{color:var(--txt)}
 
   .optin{margin:26px 0;background:linear-gradient(135deg,#0e1620,#11141b);
@@ -84,7 +106,7 @@
   .optin input{flex:1;min-width:220px;background:var(--panel-2);border:1px solid var(--line);
     color:var(--txt);font-family:var(--mono);font-size:13.5px;border-radius:6px;padding:10px}
   .optin input:focus{outline:none;border-color:var(--accent-dim)}
-  .optin .btn{background:var(--accent);color:#062412;border-color:var(--accent);font-weight:700;width:auto;margin-top:0}
+  .optin .btn{background:var(--accent);color:#062412;border-color:var(--accent);font-weight:700;flex:0 0 auto}
   .optin .btn:hover{background:#5affa0;color:#062412}
   .optin .msg{margin-top:10px;font-size:12.5px}
 
@@ -109,24 +131,54 @@
     </div>
   </div>
 </header>
-<div class="strip" data-i18n="warn">Läuft 100% im Browser. Base-Score nach offizieller CVSS-v3.1-Spezifikation.</div>
+<div class="strip" data-i18n="warn">Läuft 100% im Browser. Base- &amp; Temporal-Score nach offizieller CVSS-v3.1-Spezifikation.</div>
 
 <div class="wrap">
-  <p class="lead" data-i18n="lead">Metriken wählen — Score, Schweregrad und Vektor-String werden live berechnet. Für Schwachstellen-Reports &amp; Bug-Bounty-Einreichungen.</p>
+  <p class="lead" data-i18n="lead">Metriken wählen oder Vektor einfügen — Base- und Temporal-Score, Schweregrad und ein report-fertiger Block werden live berechnet.</p>
+
+  <div class="vecin">
+    <input type="text" id="vecInput" spellcheck="false" data-i18n-ph="ph_vec" placeholder="Vektor einfügen: CVSS:3.1/AV:N/AC:L/...">
+    <button class="btn" id="loadVec" style="flex:0 0 auto" data-i18n="b_load">Laden</button>
+  </div>
 
   <div class="layout">
-    <div class="panel" id="metrics"></div>
+    <div>
+      <div class="panel">
+        <div class="group-title"><span data-i18n="g_base">Base Metrics</span></div>
+        <div id="baseMetrics"></div>
+      </div>
+      <div class="panel">
+        <div class="group-title"><span data-i18n="g_temporal">Temporal Metrics</span><span class="opt-note" data-i18n="g_temporal_note">optional — verfeinert den Score</span></div>
+        <div id="tempMetrics"></div>
+      </div>
+    </div>
 
     <div class="panel result">
-      <div class="score-box">
-        <div class="score-num" id="scoreNum">0.0</div>
-        <div class="sev s-none" id="sev">—</div>
+      <div class="scores">
+        <div class="sbox">
+          <div class="k" data-i18n="k_base">Base</div>
+          <div class="n" id="baseNum">0.0</div>
+          <div class="sev s-none" id="baseSev">—</div>
+        </div>
+        <div class="sbox">
+          <div class="k" data-i18n="k_temp">Temporal</div>
+          <div class="n" id="tempNum">0.0</div>
+          <div class="sev s-none" id="tempSev">—</div>
+        </div>
       </div>
-      <div class="vector">
-        <div class="vlabel" data-i18n="v_label">Vektor-String</div>
-        <div class="vstr" id="vstr"></div>
-        <button class="btn" id="copyVec" data-i18n="v_copy">Vektor kopieren</button>
+
+      <div class="scale">
+        <div class="track"><div class="marker" id="marker" style="left:0%"></div></div>
+        <div class="ticks"><span>0</span><span>4</span><span>7</span><span>9</span><span>10</span></div>
       </div>
+
+      <div class="vlabel" data-i18n="v_label">Vektor-String</div>
+      <div class="vstr" id="vstr"></div>
+      <div class="btnrow">
+        <button class="btn" id="copyVec" data-i18n="v_copy">Vektor</button>
+        <button class="btn primary" id="copyReport" data-i18n="v_report">Report kopieren</button>
+      </div>
+
       <div class="sub"><span data-i18n="r_impact">Impact</span><b id="impactVal">0.0</b></div>
       <div class="sub"><span data-i18n="r_expl">Exploitability</span><b id="explVal">0.0</b></div>
     </div>
@@ -158,171 +210,218 @@
   var $=function(s,r){return (r||document).querySelector(s)};
   var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
 
-  var METRICS=[
-    {id:"AV", name:{de:"Angriffsvektor (AV)",en:"Attack Vector (AV)"},
-      opts:[["N",{de:"Netzwerk",en:"Network"}],["A",{de:"Angrenzend",en:"Adjacent"}],["L",{de:"Lokal",en:"Local"}],["P",{de:"Physisch",en:"Physical"}]], def:"N"},
-    {id:"AC", name:{de:"Angriffskomplexität (AC)",en:"Attack Complexity (AC)"},
-      opts:[["L",{de:"Niedrig",en:"Low"}],["H",{de:"Hoch",en:"High"}]], def:"L"},
-    {id:"PR", name:{de:"Benötigte Rechte (PR)",en:"Privileges Required (PR)"},
-      opts:[["N",{de:"Keine",en:"None"}],["L",{de:"Niedrig",en:"Low"}],["H",{de:"Hoch",en:"High"}]], def:"N"},
-    {id:"UI", name:{de:"Nutzerinteraktion (UI)",en:"User Interaction (UI)"},
-      opts:[["N",{de:"Keine",en:"None"}],["R",{de:"Erforderlich",en:"Required"}]], def:"N"},
-    {id:"S", name:{de:"Scope (S)",en:"Scope (S)"},
-      opts:[["U",{de:"Unverändert",en:"Unchanged"}],["C",{de:"Verändert",en:"Changed"}]], def:"U"},
-    {id:"C", name:{de:"Vertraulichkeit (C)",en:"Confidentiality (C)"},
-      opts:[["H",{de:"Hoch",en:"High"}],["L",{de:"Niedrig",en:"Low"}],["N",{de:"Keine",en:"None"}]], def:"N"},
-    {id:"I", name:{de:"Integrität (I)",en:"Integrity (I)"},
-      opts:[["H",{de:"Hoch",en:"High"}],["L",{de:"Niedrig",en:"Low"}],["N",{de:"Keine",en:"None"}]], def:"N"},
-    {id:"A", name:{de:"Verfügbarkeit (A)",en:"Availability (A)"},
-      opts:[["H",{de:"Hoch",en:"High"}],["L",{de:"Niedrig",en:"Low"}],["N",{de:"Keine",en:"None"}]], def:"N"}
+  var BASE=[
+    {id:"AV",name:{de:"Angriffsvektor (AV)",en:"Attack Vector (AV)"},opts:[
+      ["N",{de:"Netzwerk",en:"Network"},{de:"aus der Ferne / Internet",en:"remotely / internet"}],
+      ["A",{de:"Angrenzend",en:"Adjacent"},{de:"gleiches lokales Netz",en:"same local network"}],
+      ["L",{de:"Lokal",en:"Local"},{de:"lokaler Zugriff nötig",en:"local access needed"}],
+      ["P",{de:"Physisch",en:"Physical"},{de:"physischer Zugriff",en:"physical access"}]]},
+    {id:"AC",name:{de:"Angriffskomplexität (AC)",en:"Attack Complexity (AC)"},opts:[
+      ["L",{de:"Niedrig",en:"Low"},{de:"keine Sonderbedingungen",en:"no special conditions"}],
+      ["H",{de:"Hoch",en:"High"},{de:"abhängig von Bedingungen",en:"depends on conditions"}]]},
+    {id:"PR",name:{de:"Benötigte Rechte (PR)",en:"Privileges Required (PR)"},opts:[
+      ["N",{de:"Keine",en:"None"},{de:"kein Login nötig",en:"no login needed"}],
+      ["L",{de:"Niedrig",en:"Low"},{de:"normaler User",en:"basic user"}],
+      ["H",{de:"Hoch",en:"High"},{de:"Admin/privilegiert",en:"admin/privileged"}]]},
+    {id:"UI",name:{de:"Nutzerinteraktion (UI)",en:"User Interaction (UI)"},opts:[
+      ["N",{de:"Keine",en:"None"},{de:"kein Zutun des Opfers",en:"no victim action"}],
+      ["R",{de:"Erforderlich",en:"Required"},{de:"Opfer muss handeln",en:"victim must act"}]]},
+    {id:"S",name:{de:"Scope (S)",en:"Scope (S)"},opts:[
+      ["U",{de:"Unverändert",en:"Unchanged"},{de:"bleibt in der Komponente",en:"stays in component"}],
+      ["C",{de:"Verändert",en:"Changed"},{de:"betrifft andere Systeme",en:"affects other systems"}]]},
+    {id:"C",name:{de:"Vertraulichkeit (C)",en:"Confidentiality (C)"},opts:[
+      ["H",{de:"Hoch",en:"High"},{de:"voller Datenzugriff",en:"full data access"}],
+      ["L",{de:"Niedrig",en:"Low"},{de:"begrenzter Zugriff",en:"limited access"}],
+      ["N",{de:"Keine",en:"None"},{de:"kein Verlust",en:"no loss"}]]},
+    {id:"I",name:{de:"Integrität (I)",en:"Integrity (I)"},opts:[
+      ["H",{de:"Hoch",en:"High"},{de:"volle Manipulation",en:"full tampering"}],
+      ["L",{de:"Niedrig",en:"Low"},{de:"begrenzte Manipulation",en:"limited tampering"}],
+      ["N",{de:"Keine",en:"None"},{de:"kein Verlust",en:"no loss"}]]},
+    {id:"A",name:{de:"Verfügbarkeit (A)",en:"Availability (A)"},opts:[
+      ["H",{de:"Hoch",en:"High"},{de:"komplett lahmgelegt",en:"fully unavailable"}],
+      ["L",{de:"Niedrig",en:"Low"},{de:"reduzierte Leistung",en:"reduced performance"}],
+      ["N",{de:"Keine",en:"None"},{de:"kein Verlust",en:"no loss"}]]}
   ];
-  var state={AV:"N",AC:"L",PR:"N",UI:"N",S:"U",C:"N",I:"N",A:"N"};
+  var TEMP=[
+    {id:"E",name:{de:"Exploit-Reife (E)",en:"Exploit Code Maturity (E)"},opts:[
+      ["X",{de:"Nicht def.",en:"Not Defined"},{de:"ignoriert",en:"ignored"}],
+      ["H",{de:"Hoch",en:"High"},{de:"automatisiert nutzbar",en:"weaponized"}],
+      ["F",{de:"Funktional",en:"Functional"},{de:"funktionierender Exploit",en:"working exploit"}],
+      ["P",{de:"PoC",en:"PoC"},{de:"nur Proof-of-Concept",en:"proof of concept only"}],
+      ["U",{de:"Unbewiesen",en:"Unproven"},{de:"theoretisch",en:"theoretical"}]]},
+    {id:"RL",name:{de:"Behebungsgrad (RL)",en:"Remediation Level (RL)"},opts:[
+      ["X",{de:"Nicht def.",en:"Not Defined"},{de:"ignoriert",en:"ignored"}],
+      ["U",{de:"Kein Fix",en:"Unavailable"},{de:"keine Lösung",en:"no solution"}],
+      ["W",{de:"Workaround",en:"Workaround"},{de:"inoffizielle Lösung",en:"unofficial fix"}],
+      ["T",{de:"Temp. Fix",en:"Temp Fix"},{de:"vorläufiger Fix",en:"temporary fix"}],
+      ["O",{de:"Offiz. Fix",en:"Official Fix"},{de:"Patch verfügbar",en:"patch available"}]]},
+    {id:"RC",name:{de:"Meldungssicherheit (RC)",en:"Report Confidence (RC)"},opts:[
+      ["X",{de:"Nicht def.",en:"Not Defined"},{de:"ignoriert",en:"ignored"}],
+      ["C",{de:"Bestätigt",en:"Confirmed"},{de:"reproduzierbar",en:"reproducible"}],
+      ["R",{de:"Plausibel",en:"Reasonable"},{de:"wahrscheinlich",en:"likely"}],
+      ["U",{de:"Unbekannt",en:"Unknown"},{de:"unklar",en:"unclear"}]]}
+  ];
+
+  var state={AV:"N",AC:"L",PR:"N",UI:"N",S:"U",C:"N",I:"N",A:"N",E:"X",RL:"X",RC:"X"};
 
   var W={
-    AV:{N:0.85,A:0.62,L:0.55,P:0.2},
-    AC:{L:0.77,H:0.44},
-    UI:{N:0.85,R:0.62},
-    C:{H:0.56,L:0.22,N:0},
-    I:{H:0.56,L:0.22,N:0},
-    A:{H:0.56,L:0.22,N:0},
-    PR_U:{N:0.85,L:0.62,H:0.27},
-    PR_C:{N:0.85,L:0.68,H:0.5}
+    AV:{N:0.85,A:0.62,L:0.55,P:0.2}, AC:{L:0.77,H:0.44}, UI:{N:0.85,R:0.62},
+    C:{H:0.56,L:0.22,N:0}, I:{H:0.56,L:0.22,N:0}, A:{H:0.56,L:0.22,N:0},
+    PR_U:{N:0.85,L:0.62,H:0.27}, PR_C:{N:0.85,L:0.68,H:0.5},
+    E:{X:1,H:1,F:0.97,P:0.94,U:0.91}, RL:{X:1,U:1,W:0.97,T:0.96,O:0.95}, RC:{X:1,C:1,R:0.96,U:0.92}
   };
 
-  function roundup(x){
-    var i=Math.round(x*100000);
-    if(i%10000===0) return i/100000;
-    return (Math.floor(i/10000)+1)/10;
-  }
+  function roundup(x){var i=Math.round(x*100000);if(i%10000===0)return i/100000;return (Math.floor(i/10000)+1)/10;}
 
   function calc(){
-    var scopeChanged = state.S==="C";
-    var iss = 1 - ((1-W.C[state.C])*(1-W.I[state.I])*(1-W.A[state.A]));
-    var impact = scopeChanged
-      ? 7.52*(iss-0.029) - 3.25*Math.pow(iss-0.02,15)
-      : 6.42*iss;
-    var pr = scopeChanged ? W.PR_C[state.PR] : W.PR_U[state.PR];
-    var expl = 8.22 * W.AV[state.AV] * W.AC[state.AC] * pr * W.UI[state.UI];
+    var sc=state.S==="C";
+    var iss=1-((1-W.C[state.C])*(1-W.I[state.I])*(1-W.A[state.A]));
+    var impact=sc?7.52*(iss-0.029)-3.25*Math.pow(iss-0.02,15):6.42*iss;
+    var pr=sc?W.PR_C[state.PR]:W.PR_U[state.PR];
+    var expl=8.22*W.AV[state.AV]*W.AC[state.AC]*pr*W.UI[state.UI];
     var base;
-    if(impact<=0) base=0;
-    else if(scopeChanged) base=roundup(Math.min(1.08*(impact+expl),10));
+    if(impact<=0)base=0;
+    else if(sc)base=roundup(Math.min(1.08*(impact+expl),10));
     else base=roundup(Math.min(impact+expl,10));
-    return {base:base, impact:Math.max(0,impact), expl:expl};
+    var temporal=base===0?0:roundup(base*W.E[state.E]*W.RL[state.RL]*W.RC[state.RC]);
+    return {base:base,temporal:temporal,impact:Math.max(0,impact),expl:expl};
   }
-
   function severity(s){
-    if(s===0) return {key:"none",cls:"s-none"};
-    if(s<4) return {key:"low",cls:"s-low"};
-    if(s<7) return {key:"med",cls:"s-med"};
-    if(s<9) return {key:"high",cls:"s-high"};
-    return {key:"crit",cls:"s-crit"};
+    if(s===0)return{key:"none",cls:"s-none"}; if(s<4)return{key:"low",cls:"s-low"};
+    if(s<7)return{key:"med",cls:"s-med"}; if(s<9)return{key:"high",cls:"s-high"};
+    return{key:"crit",cls:"s-crit"};
   }
-
+  function scoreColor(k){return {none:"var(--muted)",low:"#8fe388",med:"var(--amber)",high:"var(--orange)",crit:"var(--warn)"}[k];}
   function vectorString(){
-    return "CVSS:3.1/AV:"+state.AV+"/AC:"+state.AC+"/PR:"+state.PR+"/UI:"+state.UI+
-           "/S:"+state.S+"/C:"+state.C+"/I:"+state.I+"/A:"+state.A;
-  }
-
-  function scoreColor(sevKey){
-    return {none:"var(--muted)",low:"#8fe388",med:"var(--amber)",high:"#ff9a5b",crit:"var(--warn)"}[sevKey];
+    var v="CVSS:3.1/AV:"+state.AV+"/AC:"+state.AC+"/PR:"+state.PR+"/UI:"+state.UI+
+      "/S:"+state.S+"/C:"+state.C+"/I:"+state.I+"/A:"+state.A;
+    ["E","RL","RC"].forEach(function(m){ if(state[m]!=="X") v+="/"+m+":"+state[m]; });
+    return v;
   }
 
   var T={
-    de:{
-      cta:"Alle Tools →",
-      warn:"Läuft 100% im Browser. Base-Score nach offizieller CVSS-v3.1-Spezifikation.",
-      lead:"Metriken wählen — Score, Schweregrad und Vektor-String werden live berechnet. Für Schwachstellen-Reports & Bug-Bounty-Einreichungen.",
-      group:"Base Metrics",
-      v_label:"Vektor-String", v_copy:"Vektor kopieren",
+    de:{cta:"Alle Tools →",
+      warn:"Läuft 100% im Browser. Base- & Temporal-Score nach offizieller CVSS-v3.1-Spezifikation.",
+      lead:"Metriken wählen oder Vektor einfügen — Base- und Temporal-Score, Schweregrad und ein report-fertiger Block werden live berechnet.",
+      ph_vec:"Vektor einfügen: CVSS:3.1/AV:N/AC:L/...", b_load:"Laden",
+      g_base:"Base Metrics", g_temporal:"Temporal Metrics", g_temporal_note:"optional — verfeinert den Score",
+      k_base:"Base", k_temp:"Temporal",
+      v_label:"Vektor-String", v_copy:"Vektor", v_report:"Report kopieren",
       r_impact:"Impact", r_expl:"Exploitability",
-      sev_none:"KEINE", sev_low:"NIEDRIG", sev_med:"MITTEL", sev_high:"HOCH", sev_crit:"KRITISCH",
+      sev_none:"KEINE",sev_low:"NIEDRIG",sev_med:"MITTEL",sev_high:"HOCH",sev_crit:"KRITISCH",
       o_h3:"Neue Tools zuerst bekommen",
       o_p:"Ein bis zwei Mails im Monat: neue kostenlose Tools, Recon-Tricks und Updates aus der ZeroTrace37-Werkbank. Kein Spam, jederzeit abbestellbar.",
-      ph_email:"deine@mail.tld", o_btn:"Eintragen",
+      ph_email:"deine@mail.tld",o_btn:"Eintragen",
       f_browser:"Läuft 100% im Browser. Keine Daten verlassen dein Gerät.",
-      copied:"kopiert",
-      m_invalid:"Bitte gültige E-Mail eingeben.", m_sending:"Sende ...",
+      copied:"kopiert", report_copied:"Report kopiert", vec_bad:"Kein gültiger CVSS-3.1-Vektor.",
+      rep_base:"Base", rep_temporal:"Temporal", rep_vector:"Vektor",
+      m_invalid:"Bitte gültige E-Mail eingeben.",m_sending:"Sende ...",
       m_ok:"Eingetragen. Willkommen an Bord — neue Tools landen bald in deinem Postfach.",
       m_send_err:"Fehler beim Senden. Bitte später erneut versuchen.",
-      m_net_err:"Netzwerkfehler. Bitte später erneut versuchen."
-    },
-    en:{
-      cta:"All Tools →",
-      warn:"Runs 100% in your browser. Base score per the official CVSS v3.1 specification.",
-      lead:"Pick the metrics — score, severity and vector string update live. For vulnerability reports & bug-bounty submissions.",
-      group:"Base Metrics",
-      v_label:"Vector string", v_copy:"Copy vector",
+      m_net_err:"Netzwerkfehler. Bitte später erneut versuchen."},
+    en:{cta:"All Tools →",
+      warn:"Runs 100% in your browser. Base & temporal score per the official CVSS v3.1 specification.",
+      lead:"Pick the metrics or paste a vector — base and temporal score, severity and a copy-ready report block update live.",
+      ph_vec:"Paste a vector: CVSS:3.1/AV:N/AC:L/...", b_load:"Load",
+      g_base:"Base Metrics", g_temporal:"Temporal Metrics", g_temporal_note:"optional — refines the score",
+      k_base:"Base", k_temp:"Temporal",
+      v_label:"Vector string", v_copy:"Vector", v_report:"Copy report",
       r_impact:"Impact", r_expl:"Exploitability",
-      sev_none:"NONE", sev_low:"LOW", sev_med:"MEDIUM", sev_high:"HIGH", sev_crit:"CRITICAL",
+      sev_none:"NONE",sev_low:"LOW",sev_med:"MEDIUM",sev_high:"HIGH",sev_crit:"CRITICAL",
       o_h3:"Get new tools first",
       o_p:"One or two emails a month: new free tools, recon tricks and updates from the ZeroTrace37 workbench. No spam, unsubscribe anytime.",
-      ph_email:"you@mail.tld", o_btn:"Subscribe",
+      ph_email:"you@mail.tld",o_btn:"Subscribe",
       f_browser:"Runs 100% in your browser. No data leaves your device.",
-      copied:"copied",
-      m_invalid:"Please enter a valid email.", m_sending:"Sending ...",
+      copied:"copied", report_copied:"report copied", vec_bad:"Not a valid CVSS 3.1 vector.",
+      rep_base:"Base", rep_temporal:"Temporal", rep_vector:"Vector",
+      m_invalid:"Please enter a valid email.",m_sending:"Sending ...",
       m_ok:"Subscribed. Welcome aboard — new tools will hit your inbox soon.",
       m_send_err:"Send failed. Please try again later.",
-      m_net_err:"Network error. Please try again later."
-    }
+      m_net_err:"Network error. Please try again later."}
   };
   var saved=null; try{saved=localStorage.getItem("zt_lang")}catch(e){}
   var LANG=(saved==="de"||saved==="en")?saved:((navigator.language||"en").toLowerCase().indexOf("de")===0?"de":"en");
   function t(k){return (T[LANG]&&T[LANG][k]!=null)?T[LANG][k]:((T.en&&T.en[k]!=null)?T.en[k]:k)}
   function esc(s){return String(s).replace(/[&<>]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c]})}
 
-  function renderMetrics(){
-    var box=$("#metrics"); box.innerHTML='<div class="group-title">'+t("group")+'</div>';
-    METRICS.forEach(function(m){
+  function renderGroup(list,elId){
+    var box=$(elId); box.innerHTML="";
+    list.forEach(function(m){
       var wrap=document.createElement("div"); wrap.className="metric";
-      var lbl=document.createElement("div"); lbl.className="mlabel";
-      lbl.innerHTML='<span>'+esc(m.name[LANG]||m.name.en)+'</span>';
+      var lbl=document.createElement("div"); lbl.className="mlabel"; lbl.textContent=m.name[LANG]||m.name.en;
       wrap.appendChild(lbl);
       var opts=document.createElement("div"); opts.className="opts";
       m.opts.forEach(function(o){
-        var key=o[0], label=o[1][LANG]||o[1].en;
+        var key=o[0], label=o[1][LANG]||o[1].en, exp=o[2]?(o[2][LANG]||o[2].en):"";
         var b=document.createElement("span");
         b.className="opt"+(state[m.id]===key?" on":"");
-        b.textContent=label+" ("+key+")";
-        b.addEventListener("click",function(){ state[m.id]=key; renderMetrics(); update(); });
+        b.innerHTML='<span>'+esc(label)+' ('+esc(key)+')</span>'+(exp?'<span class="exp">'+esc(exp)+'</span>':'');
+        b.addEventListener("click",function(){ state[m.id]=key; renderAll(); });
         opts.appendChild(b);
       });
-      wrap.appendChild(opts);
-      box.appendChild(wrap);
+      wrap.appendChild(opts); box.appendChild(wrap);
     });
   }
 
   function update(){
-    var r=calc(), sev=severity(r.base);
-    var num=$("#scoreNum");
-    num.textContent=r.base.toFixed(1);
-    num.style.color=scoreColor(sev.key);
-    var sevEl=$("#sev");
-    sevEl.className="sev "+sev.cls;
-    sevEl.textContent=t("sev_"+sev.key);
+    var r=calc();
+    var bs=severity(r.base), ts=severity(r.temporal);
+    var bn=$("#baseNum"); bn.textContent=r.base.toFixed(1); bn.style.color=scoreColor(bs.key);
+    var bse=$("#baseSev"); bse.className="sev "+bs.cls; bse.textContent=t("sev_"+bs.key);
+    var tn=$("#tempNum"); tn.textContent=r.temporal.toFixed(1); tn.style.color=scoreColor(ts.key);
+    var tse=$("#tempSev"); tse.className="sev "+ts.cls; tse.textContent=t("sev_"+ts.key);
+    var eff=r.temporal;
+    $("#marker").style.left=(eff*10)+"%";
     $("#vstr").textContent=vectorString();
     $("#impactVal").textContent=r.impact.toFixed(1);
     $("#explVal").textContent=r.expl.toFixed(1);
   }
+  function renderAll(){ renderGroup(BASE,"#baseMetrics"); renderGroup(TEMP,"#tempMetrics"); update(); }
+
+  function loadVector(){
+    var raw=$("#vecInput").value.trim();
+    if(!raw){return;}
+    var ok=false, parts=raw.split("/");
+    var valid={AV:["N","A","L","P"],AC:["L","H"],PR:["N","L","H"],UI:["N","R"],S:["U","C"],
+      C:["H","L","N"],I:["H","L","N"],A:["H","L","N"],E:["X","H","F","P","U"],RL:["X","U","W","T","O"],RC:["X","C","R","U"]};
+    var tmp={AV:"N",AC:"L",PR:"N",UI:"N",S:"U",C:"N",I:"N",A:"N",E:"X",RL:"X",RC:"X"};
+    parts.forEach(function(p){
+      var kv=p.split(":"); if(kv.length!==2)return;
+      var k=kv[0].toUpperCase(), v=kv[1].toUpperCase();
+      if(valid[k] && valid[k].indexOf(v)>=0){ tmp[k]=v; ok=true; }
+    });
+    if(ok){ state=tmp; renderAll(); ping(t("copied")); }
+    else{ ping(t("vec_bad")); }
+  }
+  $("#loadVec").addEventListener("click",loadVector);
+  $("#vecInput").addEventListener("keydown",function(e){ if(e.key==="Enter") loadVector(); });
 
   function applyI18n(){
     document.documentElement.lang=LANG;
     $$("[data-i18n]").forEach(function(el){var k=el.getAttribute("data-i18n");if(T[LANG][k]!=null)el.textContent=T[LANG][k]});
     $$("[data-i18n-ph]").forEach(function(el){var k=el.getAttribute("data-i18n-ph");if(T[LANG][k]!=null)el.setAttribute("placeholder",T[LANG][k])});
     $$("#langtog .lt").forEach(function(b){b.classList.toggle("on",b.dataset.lang===LANG)});
-    renderMetrics(); update();
+    renderAll();
   }
   $$("#langtog .lt").forEach(function(b){b.addEventListener("click",function(){
     LANG=b.dataset.lang;try{localStorage.setItem("zt_lang",LANG)}catch(e){}applyI18n()})});
 
   var toast=$("#toast"),tt;
   function ping(msg){toast.textContent=msg||t("copied");toast.classList.add("show");
-    clearTimeout(tt);tt=setTimeout(function(){toast.classList.remove("show")},1100)}
-  function copy(text){
-    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(function(){ping()})}
+    clearTimeout(tt);tt=setTimeout(function(){toast.classList.remove("show")},1200)}
+  function copy(text,msg){
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(function(){ping(msg)})}
     else{var ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);
-      ta.select();try{document.execCommand("copy")}catch(e){}document.body.removeChild(ta);ping()}
+      ta.select();try{document.execCommand("copy")}catch(e){}document.body.removeChild(ta);ping(msg)}
   }
-  $("#copyVec").addEventListener("click",function(){copy(vectorString())});
+  $("#copyVec").addEventListener("click",function(){copy(vectorString(),t("copied"))});
+  $("#copyReport").addEventListener("click",function(){
+    var r=calc(), bs=severity(r.base), ts=severity(r.temporal);
+    var rep=t("rep_base")+": "+r.base.toFixed(1)+" ("+t("sev_"+bs.key)+")\n"+
+            t("rep_temporal")+": "+r.temporal.toFixed(1)+" ("+t("sev_"+ts.key)+")\n"+
+            t("rep_vector")+": "+vectorString();
+    copy(rep,t("report_copied"));
+  });
 
   var optform=$("#optform"),optmsg=$("#optmsg");
   optform.addEventListener("submit",function(e){
